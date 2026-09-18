@@ -1,0 +1,804 @@
+{
+  "info": {
+    "_postman_id": "7a6b42d0-9990-49ea-adc4-0f788a421f35",
+    "name": "CRS Certification",
+    "description": "Automated partner-certification suite for the Mock CRS API. Run against a live instance of mock_crs (see ../mock_crs) with the 'CRS Local' environment. Three tests are EXPECTED to fail against the bundled mock -- they exist to prove the harness catches real defects (see README.md 'Deliberate API quirks').",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "createdReservationId",
+      "value": ""
+    },
+    {
+      "key": "submittedGuestName",
+      "value": ""
+    },
+    {
+      "key": "submittedCheckin",
+      "value": ""
+    },
+    {
+      "key": "submittedCheckout",
+      "value": ""
+    },
+    {
+      "key": "submittedGuestEmail",
+      "value": ""
+    },
+    {
+      "key": "propertyId",
+      "value": ""
+    },
+    {
+      "key": "rateId",
+      "value": ""
+    },
+    {
+      "key": "ratePropertyId",
+      "value": ""
+    },
+    {
+      "key": "rateRoomType",
+      "value": ""
+    },
+    {
+      "key": "rateNightly",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "0 - Setup",
+      "description": "Resets in-memory mock CRS state so the certification run is deterministic and repeatable.",
+      "item": [
+        {
+          "name": "Reset mock state",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/_test/reset",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "_test",
+                "reset"
+              ]
+            },
+            "description": "Not part of the real CRS contract. Clears reservations created by a previous certification run."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "1 - System",
+      "item": [
+        {
+          "name": "GET /health - service is healthy",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has status field equal to ok', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.have.property('status');",
+                  "    pm.expect(json.status).to.eql('ok');",
+                  "});",
+                  "",
+                  "pm.test('Response time is reasonable (< 2000ms)', function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(2000);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "health"
+              ]
+            },
+            "description": ""
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "2 - Properties",
+      "item": [
+        {
+          "name": "GET /properties - list properties",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has properties array and matching count', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.have.property('properties');",
+                  "    pm.expect(json.properties).to.be.an('array');",
+                  "    pm.expect(json.properties.length).to.be.above(0);",
+                  "    pm.expect(json.count).to.eql(json.properties.length);",
+                  "});",
+                  "",
+                  "pm.test('Each property has required fields with correct types', function () {",
+                  "    const json = pm.response.json();",
+                  "    json.properties.forEach(function (p) {",
+                  "        pm.expect(p).to.have.property('property_id').that.is.a('string');",
+                  "        pm.expect(p).to.have.property('name').that.is.a('string');",
+                  "        pm.expect(p).to.have.property('city').that.is.a('string');",
+                  "        pm.expect(p).to.have.property('star_rating').that.is.a('number');",
+                  "        pm.expect(p.star_rating).to.be.within(1, 5);",
+                  "    });",
+                  "});",
+                  "",
+                  "pm.test('Store first property_id for downstream requests', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.collectionVariables.set('propertyId', json.properties[0].property_id);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/properties",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "properties"
+              ]
+            },
+            "description": ""
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "3 - Rates",
+      "item": [
+        {
+          "name": "GET /rates - list all rates",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('rates is a non-empty array matching count', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.rates).to.be.an('array');",
+                  "    pm.expect(json.rates.length).to.be.above(0);",
+                  "    pm.expect(json.count).to.eql(json.rates.length);",
+                  "});",
+                  "",
+                  "pm.test('Business rule: every nightly_rate is greater than 0', function () {",
+                  "    const json = pm.response.json();",
+                  "    json.rates.forEach(function (r) {",
+                  "        pm.expect(r.nightly_rate).to.be.a('number');",
+                  "        pm.expect(r.nightly_rate).to.be.above(0);",
+                  "    });",
+                  "});",
+                  "",
+                  "pm.test('Store a known rate_id/property_id pair for downstream requests', function () {",
+                  "    const json = pm.response.json();",
+                  "    const rate = json.rates.find(r => r.rate_id === 'RATE-STD-001');",
+                  "    pm.expect(rate, 'expected seed rate RATE-STD-001 to exist').to.not.be.undefined;",
+                  "    pm.collectionVariables.set('rateId', rate.rate_id);",
+                  "    pm.collectionVariables.set('ratePropertyId', rate.property_id);",
+                  "    pm.collectionVariables.set('rateRoomType', rate.room_type);",
+                  "    pm.collectionVariables.set('rateNightly', rate.nightly_rate);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/rates",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "rates"
+              ]
+            },
+            "description": ""
+          },
+          "response": []
+        },
+        {
+          "name": "GET /rates?property_id=unknown - 404 for unknown property",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 404 for unknown property_id', function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/rates?property_id=HTL-DOES-NOT-EXIST",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "rates"
+              ],
+              "query": [
+                {
+                  "key": "property_id",
+                  "value": "HTL-DOES-NOT-EXIST"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "4 - Availability",
+      "item": [
+        {
+          "name": "GET /availability - valid date range",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Echoes back requested property_id and dates', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.property_id).to.eql(pm.collectionVariables.get('propertyId') || 'HTL-001');",
+                  "    pm.expect(json.checkin).to.eql('2026-11-01');",
+                  "    pm.expect(json.checkout).to.eql('2026-11-05');",
+                  "});",
+                  "",
+                  "pm.test('Response has an array of rooms and a boolean available flag', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.have.property('available').that.is.a('boolean');",
+                  "    pm.expect(json.rooms).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/availability?property_id=HTL-001&checkin=2026-11-01&checkout=2026-11-05",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "availability"
+              ],
+              "query": [
+                {
+                  "key": "property_id",
+                  "value": "HTL-001"
+                },
+                {
+                  "key": "checkin",
+                  "value": "2026-11-01"
+                },
+                {
+                  "key": "checkout",
+                  "value": "2026-11-05"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "response": []
+        },
+        {
+          "name": "GET /availability - checkout before checkin is rejected",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 4xx when checkout is before checkin', function () {",
+                  "    pm.expect(pm.response.code).to.be.within(400, 499);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/availability?property_id=HTL-001&checkin=2026-11-05&checkout=2026-11-01",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "availability"
+              ],
+              "query": [
+                {
+                  "key": "property_id",
+                  "value": "HTL-001"
+                },
+                {
+                  "key": "checkin",
+                  "value": "2026-11-05"
+                },
+                {
+                  "key": "checkout",
+                  "value": "2026-11-01"
+                }
+              ]
+            },
+            "description": "Contrast case: /availability correctly enforces date ordering. POST /reservations does not (see quirk test in folder 5)."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "5 - Reservations",
+      "item": [
+        {
+          "name": "POST /reservations - create valid reservation",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test('Response has all required reservation fields', function () {",
+                  "    const json = pm.response.json();",
+                  "    ['reservation_id','property_id','rate_id','room_type','checkin','checkout',",
+                  "     'guest_name','guest_email','guests','nights','nightly_rate','currency',",
+                  "     'total_amount','status','created_at','updated_at'].forEach(function (field) {",
+                  "        pm.expect(json, 'missing field ' + field).to.have.property(field);",
+                  "    });",
+                  "});",
+                  "",
+                  "pm.test('Business rule: total_amount equals nightly_rate * nights', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.total_amount).to.eql(Math.round(json.nightly_rate * json.nights * 100) / 100);",
+                  "});",
+                  "",
+                  "pm.test('Business rule: nightly_rate is greater than 0', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.nightly_rate).to.be.above(0);",
+                  "});",
+                  "",
+                  "pm.test('status is confirmed for a new reservation', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('confirmed');",
+                  "});",
+                  "",
+                  "pm.test('Store reservation_id and submitted values for round-trip check', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.collectionVariables.set('createdReservationId', json.reservation_id);",
+                  "    pm.collectionVariables.set('submittedGuestName', pm.request.body ? JSON.parse(pm.request.body.raw).guest_name : '');",
+                  "    pm.collectionVariables.set('submittedCheckin', JSON.parse(pm.request.body.raw).checkin);",
+                  "    pm.collectionVariables.set('submittedCheckout', JSON.parse(pm.request.body.raw).checkout);",
+                  "    pm.collectionVariables.set('submittedGuestEmail', JSON.parse(pm.request.body.raw).guest_email);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/reservations",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "reservations"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"property_id\": \"HTL-001\",\n  \"rate_id\": \"RATE-STD-001\",\n  \"room_type\": \"standard_queen\",\n  \"checkin\": \"2026-12-10\",\n  \"checkout\": \"2026-12-13\",\n  \"guest_name\": \"Amara Okafor\",\n  \"guest_email\": \"amara.okafor@example.com\",\n  \"guests\": 2\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /reservations/{id} - round trip matches create",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Round trip: reservation_id matches the one just created', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.reservation_id).to.eql(pm.collectionVariables.get('createdReservationId'));",
+                  "});",
+                  "",
+                  "pm.test('Round trip: guest_name, checkin, checkout, guest_email match submitted values exactly', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.guest_name).to.eql(pm.collectionVariables.get('submittedGuestName'));",
+                  "    pm.expect(json.checkin).to.eql(pm.collectionVariables.get('submittedCheckin'));",
+                  "    pm.expect(json.checkout).to.eql(pm.collectionVariables.get('submittedCheckout'));",
+                  "    pm.expect(json.guest_email).to.eql(pm.collectionVariables.get('submittedGuestEmail'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/reservations/{{createdReservationId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "reservations",
+                "{{createdReservationId}}"
+              ]
+            },
+            "description": "Verifies that what was submitted on create is exactly what a subsequent GET returns (round-trip integrity). This request uses a well-formed guest_name so it should PASS -- contrast with the long-guest-name quirk test below."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /reservations - QUIRK: checkout before checkin should be rejected",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('QUIRK CHECK: server rejects checkout <= checkin with a 4xx status', function () {",
+                  "    pm.expect(pm.response.code, 'Expected a 4xx validation error for checkout before checkin, ' +",
+                  "        'but the server accepted the booking. This is CRS-QUIRK-1 (see README).').to.be.within(400, 499);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/reservations",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "reservations"
+              ]
+            },
+            "description": "CRS-QUIRK-1: the mock API accepts a reservation whose checkout date is BEFORE its checkin date. A certified CRS must reject this with a 4xx. This test is expected to FAIL against the bundled mock -- that failure is the harness doing its job.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"property_id\": \"HTL-001\",\n  \"rate_id\": \"RATE-STD-001\",\n  \"room_type\": \"standard_queen\",\n  \"checkin\": \"2026-12-20\",\n  \"checkout\": \"2026-12-18\",\n  \"guest_name\": \"Date Order Test\",\n  \"guest_email\": \"date.order@example.com\",\n  \"guests\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /reservations - QUIRK: guest_name over 50 chars must round-trip exactly",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Request accepted (201)', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test('QUIRK CHECK: guest_name is stored/returned without silent truncation', function () {",
+                  "    const json = pm.response.json();",
+                  "    const submitted = JSON.parse(pm.request.body.raw).guest_name;",
+                  "    pm.expect(json.guest_name, 'Expected guest_name to round-trip exactly (length ' + submitted.length +",
+                  "        '), but the server truncated it to length ' + json.guest_name.length +",
+                  "        '. This is CRS-QUIRK-3 (see README).').to.eql(submitted);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/reservations",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "reservations"
+              ]
+            },
+            "description": "CRS-QUIRK-3: guest names longer than 50 characters are silently truncated instead of being rejected or preserved. This test is expected to FAIL against the bundled mock.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"property_id\": \"HTL-002\",\n  \"rate_id\": \"RATE-STE-002\",\n  \"room_type\": \"suite\",\n  \"checkin\": \"2026-12-01\",\n  \"checkout\": \"2026-12-03\",\n  \"guest_name\": \"Alexandra Christodoulopoulou-Featherstonehaugh the Third of Constantinople\",\n  \"guest_email\": \"long.name@example.com\",\n  \"guests\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "PUT /reservations/{id} - valid update",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('guest_name reflects the update', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.guest_name).to.eql('Amara Okafor-Whitfield');",
+                  "});",
+                  "",
+                  "pm.test('updated_at changed and reservation_id is stable', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.reservation_id).to.eql(pm.collectionVariables.get('createdReservationId'));",
+                  "    pm.expect(json).to.have.property('updated_at');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/reservations/{{createdReservationId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "reservations",
+                "{{createdReservationId}}"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"guest_name\": \"Amara Okafor-Whitfield\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "PUT /reservations/{id} - QUIRK: unknown id should return 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('QUIRK CHECK: unknown reservation returns 404, not 200-with-error-body', function () {",
+                  "    pm.expect(pm.response.code, 'Expected 404 for an update to a nonexistent reservation, but got ' +",
+                  "        pm.response.code + '. This is CRS-QUIRK-2 (see README): the server returns HTTP 200 ' +",
+                  "        'with an {\"error\": ...} body instead of a proper 404.').to.eql(404);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/reservations/RES-DOES-NOT-EXIST",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "reservations",
+                "RES-DOES-NOT-EXIST"
+              ]
+            },
+            "description": "CRS-QUIRK-2: updating a reservation that does not exist returns HTTP 200 with an error payload instead of HTTP 404. This test is expected to FAIL against the bundled mock.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"guest_name\": \"Nobody\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "DELETE /reservations/{id} - cancel valid reservation",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('status is cancelled', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('cancelled');",
+                  "    pm.expect(json.reservation_id).to.eql(pm.collectionVariables.get('createdReservationId'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/reservations/{{createdReservationId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "reservations",
+                "{{createdReservationId}}"
+              ]
+            },
+            "description": ""
+          },
+          "response": []
+        },
+        {
+          "name": "DELETE /reservations/{id} - unknown id correctly returns 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 404 (contrast: DELETE handles unknown ids correctly, unlike PUT)', function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/reservations/RES-DOES-NOT-EXIST",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "reservations",
+                "RES-DOES-NOT-EXIST"
+              ]
+            },
+            "description": ""
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

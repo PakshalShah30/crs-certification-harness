@@ -1,0 +1,411 @@
+openapi: 3.0.3
+info:
+  title: CRS Certification API
+  description: >
+    Contract for the reservation endpoints a Central Reservation System (CRS)
+    must expose to pass channel-partner certification. This is the source of
+    truth the mock implementation in `mock_crs/` and the Postman collection
+    in `collection/` are both certified against.
+  version: 1.0.0
+  contact:
+    name: Pakshal Shah
+    url: https://pakshalshah.com
+license:
+  name: MIT
+servers:
+  - url: http://localhost:8000
+    description: Local mock CRS (offline)
+
+tags:
+  - name: System
+  - name: Properties
+  - name: Rates
+  - name: Availability
+  - name: Reservations
+
+paths:
+  /health:
+    get:
+      tags: [System]
+      summary: Health check
+      operationId: getHealth
+      responses:
+        "200":
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  time:
+                    type: string
+                    format: date-time
+
+  /properties:
+    get:
+      tags: [Properties]
+      summary: List certifiable properties
+      operationId: listProperties
+      responses:
+        "200":
+          description: A list of properties
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [properties, count]
+                properties:
+                  count:
+                    type: integer
+                  properties:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Property"
+
+  /rates:
+    get:
+      tags: [Rates]
+      summary: List rate plans, optionally filtered by property
+      operationId: listRates
+      parameters:
+        - name: property_id
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: A list of rate plans
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [rates, count]
+                properties:
+                  count:
+                    type: integer
+                  rates:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Rate"
+        "404":
+          description: Unknown property_id
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /availability:
+    get:
+      tags: [Availability]
+      summary: Check room availability for a property and date range
+      operationId: getAvailability
+      parameters:
+        - name: property_id
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: checkin
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: checkout
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Availability result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Availability"
+        "404":
+          description: Unknown property_id
+        "422":
+          description: checkout is not strictly after checkin
+
+  /reservations:
+    post:
+      tags: [Reservations]
+      summary: Create a reservation
+      operationId: createReservation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReservationCreate"
+      responses:
+        "201":
+          description: Reservation created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Reservation"
+        "404":
+          description: Unknown property_id or rate_id
+        "422":
+          description: Validation error (e.g. malformed request body)
+
+  /reservations/{reservation_id}:
+    get:
+      tags: [Reservations]
+      summary: Fetch a reservation by id
+      operationId: getReservation
+      parameters:
+        - $ref: "#/components/parameters/ReservationId"
+      responses:
+        "200":
+          description: The reservation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Reservation"
+        "404":
+          description: Reservation not found
+    put:
+      tags: [Reservations]
+      summary: Update a reservation
+      operationId: updateReservation
+      parameters:
+        - $ref: "#/components/parameters/ReservationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReservationUpdate"
+      responses:
+        "200":
+          description: The updated reservation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Reservation"
+        "404":
+          description: Reservation not found
+    delete:
+      tags: [Reservations]
+      summary: Cancel a reservation
+      operationId: cancelReservation
+      parameters:
+        - $ref: "#/components/parameters/ReservationId"
+      responses:
+        "200":
+          description: Reservation cancelled
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [reservation_id, status]
+                properties:
+                  reservation_id:
+                    type: string
+                  status:
+                    type: string
+                    example: cancelled
+        "404":
+          description: Reservation not found
+
+components:
+  parameters:
+    ReservationId:
+      name: reservation_id
+      in: path
+      required: true
+      schema:
+        type: string
+
+  schemas:
+    Property:
+      type: object
+      required: [property_id, name, city, country, star_rating]
+      properties:
+        property_id:
+          type: string
+        name:
+          type: string
+        city:
+          type: string
+        country:
+          type: string
+        star_rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+
+    Rate:
+      type: object
+      required: [rate_id, property_id, room_type, nightly_rate, currency, refundable]
+      properties:
+        rate_id:
+          type: string
+        property_id:
+          type: string
+        room_type:
+          type: string
+        nightly_rate:
+          type: number
+          minimum: 0
+          exclusiveMinimum: true
+        currency:
+          type: string
+        refundable:
+          type: boolean
+
+    Availability:
+      type: object
+      required: [property_id, checkin, checkout, available, rooms]
+      properties:
+        property_id:
+          type: string
+        checkin:
+          type: string
+          format: date
+        checkout:
+          type: string
+          format: date
+        available:
+          type: boolean
+        rooms:
+          type: array
+          items:
+            type: object
+            properties:
+              room_type:
+                type: string
+              rate_id:
+                type: string
+              nightly_rate:
+                type: number
+              currency:
+                type: string
+
+    ReservationCreate:
+      type: object
+      required: [property_id, rate_id, room_type, checkin, checkout, guest_name, guest_email]
+      properties:
+        property_id:
+          type: string
+        rate_id:
+          type: string
+        room_type:
+          type: string
+        checkin:
+          type: string
+          format: date
+        checkout:
+          type: string
+          format: date
+          description: MUST be strictly after checkin. A conforming CRS rejects
+            requests where this is not true with a 4xx response.
+        guest_name:
+          type: string
+          minLength: 1
+          maxLength: 50
+        guest_email:
+          type: string
+          format: email
+        guests:
+          type: integer
+          minimum: 1
+          maximum: 10
+          default: 1
+
+    ReservationUpdate:
+      type: object
+      properties:
+        checkin:
+          type: string
+          format: date
+        checkout:
+          type: string
+          format: date
+        guest_name:
+          type: string
+          maxLength: 50
+        guest_email:
+          type: string
+          format: email
+        guests:
+          type: integer
+          minimum: 1
+          maximum: 10
+        status:
+          type: string
+
+    Reservation:
+      type: object
+      required:
+        - reservation_id
+        - property_id
+        - rate_id
+        - room_type
+        - checkin
+        - checkout
+        - guest_name
+        - guest_email
+        - guests
+        - nights
+        - nightly_rate
+        - currency
+        - total_amount
+        - status
+        - created_at
+        - updated_at
+      properties:
+        reservation_id:
+          type: string
+        property_id:
+          type: string
+        rate_id:
+          type: string
+        room_type:
+          type: string
+        checkin:
+          type: string
+          format: date
+        checkout:
+          type: string
+          format: date
+        guest_name:
+          type: string
+          maxLength: 50
+        guest_email:
+          type: string
+          format: email
+        guests:
+          type: integer
+        nights:
+          type: integer
+        nightly_rate:
+          type: number
+        currency:
+          type: string
+        total_amount:
+          type: number
+        status:
+          type: string
+          enum: [confirmed, cancelled]
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    Error:
+      type: object
+      properties:
+        detail:
+          type: string

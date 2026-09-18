@@ -1,0 +1,9 @@
+# Mock CRS API
+fastapi==0.115.6
+uvicorn==0.34.0
+pydantic==2.10.4
+email-validator==2.2.0
+
+# Python fallback test/runner path
+requests==2.32.3
+pytest==8.3.4

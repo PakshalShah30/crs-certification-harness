@@ -1,0 +1,28 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  python-fallback-tests:
+    name: Python fallback certification path (pytest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run pure-Python certification suite
+        run: python3 scripts/run_python_tests.py
+
+      - name: Sanity check - mock API imports cleanly
+        run: python3 -c "from mock_crs.app import app; print('mock_crs.app imported OK:', app.title)"

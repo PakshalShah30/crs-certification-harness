@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.venv/
+venv/
+
+# Node / Newman
+node_modules/
+npm-debug.log*
+
+# Generated at runtime (kept: reports/certification-report.md and
+# reports/certification-report.html are committed intentionally as a real
+# sample run -- see README. Everything else under reports/ is scratch
+# output from local re-runs.)
+reports/newman-report.json
+reports/newman-report.html
+reports/mock_crs_server.log
+
+# OS / editor
+.DS_Store
+*.swp
+.vscode/
+.idea/
