@@ -27,37 +27,24 @@ Everything runs locally, offline, with no external services and no secrets.
 
 ```mermaid
 flowchart LR
-    subgraph "Contract"
-        Spec["spec/crs-openapi.yaml<br/>(OpenAPI 3.0)"]
-    end
+    spec["spec/crs-openapi.yaml<br/>OpenAPI 3.0 contract"]
+    mock["mock_crs/app.py<br/>FastAPI system under test"]
+    coll["collection/crs-certification<br/>.postman_collection.json"]
+    runner["run_certification.sh<br/>scripts/run_certification.py"]
+    newman["Newman<br/>Postman CLI runner"]
+    pyfb["scripts/run_python_tests.py<br/>pytest fallback, no Node"]
+    signoff["scripts/generate_signoff.py"]
+    report["reports/certification-report.md<br/>and .html"]
 
-    subgraph "System under test"
-        Mock["mock_crs/app.py<br/>(FastAPI, in-memory)"]
-    end
-
-    subgraph "Certification suite"
-        Coll["collection/crs-certification.postman_collection.json<br/>(Postman v2.1, pm.test assertions)"]
-    end
-
-    subgraph "Runner"
-        Runner["run_certification.sh /<br/>scripts/run_certification.py"]
-    end
-
-    Newman["Newman<br/>(Postman CLI runner)"]
-    PyFallback["scripts/run_python_tests.py<br/>+ pytest (no Node required)"]
-
-    Signoff["scripts/generate_signoff.py"]
-    Report["reports/certification-report.md<br/>+ .html"]
-
-    Spec -.describes contract for.-> Mock
-    Spec -.describes contract for.-> Coll
-    Runner -->|starts, health-checks| Mock
-    Runner -->|runs| Newman
-    Newman -->|executes| Coll
-    Coll -->|HTTP requests| Mock
-    Newman -->|newman-report.json| Signoff
-    Signoff --> Report
-    PyFallback -.same assertions, no Node.-> Mock
+    spec -.->|describes| mock
+    spec -.->|describes| coll
+    runner -->|starts and health-checks| mock
+    runner -->|invokes| newman
+    newman -->|executes| coll
+    coll -->|HTTP requests| mock
+    newman -->|newman-report.json| signoff
+    signoff --> report
+    pyfb -.->|same assertions| mock
 ```
 
 Two independent, equivalent test paths exist on purpose:
